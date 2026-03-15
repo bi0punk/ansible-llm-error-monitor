@@ -1,0 +1,8 @@
+---
+- name: Proyecto base Ansible para servidor remoto
+  hosts: remotos
+  gather_facts: true
+  become: true
+
+  roles:
+    - role: demo

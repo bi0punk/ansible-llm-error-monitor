@@ -1,0 +1,6 @@
+---
+project_name: "ansible_llm_base"
+workspace_dir: "/tmp/ansible_llm_base"
+simulate_failure: false
+failure_mode: "command"   # command | assert
+sample_file_name: "healthcheck.txt"

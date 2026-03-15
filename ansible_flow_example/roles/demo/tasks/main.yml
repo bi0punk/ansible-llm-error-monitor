@@ -1,0 +1,50 @@
+---
+- name: Mostrar información básica del host
+  ansible.builtin.debug:
+    msg:
+      - "Proyecto: {{ project_name }}"
+      - "Host: {{ inventory_hostname }}"
+      - "Sistema: {{ ansible_system }}"
+      - "Kernel: {{ ansible_kernel }}"
+      - "Python: {{ ansible_python_version }}"
+
+- name: Crear directorio de trabajo local
+  ansible.builtin.file:
+    path: "{{ workspace_dir }}"
+    state: directory
+    mode: "0755"
+
+- name: Crear archivo de verificación
+  ansible.builtin.copy:
+    dest: "{{ workspace_dir }}/{{ sample_file_name }}"
+    mode: "0644"
+    content: |
+      project={{ project_name }}
+      host={{ inventory_hostname }}
+      date={{ ansible_date_time.iso8601 }}
+      message={{ demo_message }}
+
+- name: Ejecutar comando simple de prueba
+  ansible.builtin.command: /bin/echo "ansible local test ok"
+  register: demo_echo
+  changed_when: false
+
+- name: Mostrar resultado del comando
+  ansible.builtin.debug:
+    var: demo_echo.stdout
+
+- name: Forzar fallo controlado por comando
+  ansible.builtin.command: /bin/false
+  when:
+    - simulate_failure | bool
+    - failure_mode == 'command'
+
+- name: Forzar fallo controlado por assert
+  ansible.builtin.assert:
+    that:
+      - false
+    fail_msg: "Fallo controlado de prueba para futuras integraciones con LLM"
+    success_msg: "Esto no debería mostrarse"
+  when:
+    - simulate_failure | bool
+    - failure_mode == 'assert'
