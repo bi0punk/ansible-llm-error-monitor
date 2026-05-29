@@ -1,0 +1,353 @@
+{
+  "tree_summary": {
+    "root": "ansible-llm-error-monitor",
+    "directories": 16,
+    "files": 33,
+    "entries": [
+      "├── ansible_flow_example",
+      "│   ├── ansible.cfg",
+      "│   ├── artifacts",
+      "│   ├── backend",
+      "│   │   └── data",
+      "│   │       ├── dashboard_state.json",
+      "│   │       ├── errors_diag.jsonl",
+      "│   │       └── errors_raw.jsonl",
+      "│   ├── callback_plugins",
+      "│   │   ├── .gitkeep",
+      "│   │   └── llm_diag.py",
+      "│   ├── group_vars",
+      "│   │   └── all.yml",
+      "│   ├── host_vars",
+      "│   ├── inventory.ini",
+      "│   ├── playbooks",
+      "│   │   └── site.yml",
+      "│   ├── README.generated.md",
+      "│   ├── README.md",
+      "│   ├── requirements.txt",
+      "│   ├── roles",
+      "│   │   └── demo",
+      "│   │       ├── defaults",
+      "│   │       └── tasks",
+      "│   └── scripts",
+      "│       ├── check_prereqs.sh",
+      "│       ├── run_fail_assert.sh",
+      "│       ├── run_fail_command.sh",
+      "│       └── run_ok.sh",
+      "├── app",
+      "│   ├── config.py",
+      "│   ├── dashboard.py",
+      "│   ├── __init__.py",
+      "│   ├── llm.py",
+      "│   ├── models.py",
+      "│   ├── routes.py",
+      "│   ├── state.py",
+      "│   ├── storage.py",
+      "│   └── worker.py",
+      "├── data",
+      "│   ├── dashboard_state.json",
+      "│   ├── errors_diag.jsonl",
+      "│   └── errors_raw.jsonl",
+      "├── .gitignore",
+      "├── main.py",
+      "├── README.generated.md",
+      "├── README.md",
+      "└── requirements.txt"
+    ],
+    "tree_text": "ansible-llm-error-monitor\n├── ansible_flow_example\n│   ├── ansible.cfg\n│   ├── artifacts\n│   ├── backend\n│   │   └── data\n│   │       ├── dashboard_state.json\n│   │       ├── errors_diag.jsonl\n│   │       └── errors_raw.jsonl\n│   ├── callback_plugins\n│   │   ├── .gitkeep\n│   │   └── llm_diag.py\n│   ├── group_vars\n│   │   └── all.yml\n│   ├── host_vars\n│   ├── inventory.ini\n│   ├── playbooks\n│   │   └── site.yml\n│   ├── README.generated.md\n│   ├── README.md\n│   ├── requirements.txt\n│   ├── roles\n│   │   └── demo\n│   │       ├── defaults\n│   │       └── tasks\n│   └── scripts\n│       ├── check_prereqs.sh\n│       ├── run_fail_assert.sh\n│       ├── run_fail_command.sh\n│       └── run_ok.sh\n├── app\n│   ├── config.py\n│   ├── dashboard.py\n│   ├── __init__.py\n│   ├── llm.py\n│   ├── models.py\n│   ├── routes.py\n│   ├── state.py\n│   ├── storage.py\n│   └── worker.py\n├── data\n│   ├── dashboard_state.json\n│   ├── errors_diag.jsonl\n│   └── errors_raw.jsonl\n├── .gitignore\n├── main.py\n├── README.generated.md\n├── README.md\n└── requirements.txt",
+    "tree_command": "tree -a -L 4 -I .direnv|.env|.git|.idea|.mypy_cache|.nox|.pytest_cache|.readme_rebuilder|.ruff_cache|.tox|.venv|.virtualenv|.vscode|ENV|__pycache__|build|dist|env|node_modules|venv|virtualenv /home/drbash/Documentos/ansible-llm-error-monitor",
+    "tree_source": "system",
+    "tree_truncated": false,
+    "excluded_dirs": [
+      ".direnv",
+      ".env",
+      ".git",
+      ".idea",
+      ".mypy_cache",
+      ".nox",
+      ".pytest_cache",
+      ".readme_rebuilder",
+      ".ruff_cache",
+      ".tox",
+      ".venv",
+      ".virtualenv",
+      ".vscode",
+      "ENV",
+      "__pycache__",
+      "build",
+      "dist",
+      "env",
+      "node_modules",
+      "venv",
+      "virtualenv"
+    ]
+  },
+  "selected_files": [
+    {
+      "path": "requirements.txt",
+      "content": "fastapi>=0.111.0\nuvicorn[standard]>=0.29.0\npydantic>=2.0.0\nrequests>=2.31.0\n"
+    },
+    {
+      "path": "main.py",
+      "content": "\"\"\"Application entrypoint – exposes `app` for uvicorn.\"\"\"\nfrom app.routes import app  # noqa: F401  re-export\n\nif __name__ == \"__main__\":\n    import uvicorn\n    uvicorn.run(\"main:app\", host=\"0.0.0.0\", port=8000, reload=True)\n\n# extracted_signals\nfrom app.routes import app  # noqa: F401  re-export\nif __name__ == \"__main__\":"
+    },
+    {
+      "path": "app/routes.py",
+      "content": "\"\"\"FastAPI application and route definitions.\"\"\"\nfrom __future__ import annotations\n\nfrom datetime import datetime\nfrom typing import Any\n\nimport requests\nfrom fastapi import FastAPI\nfrom fastapi.responses import HTMLResponse\n\nfrom app import config, state, worker\nfrom app.config import RAW_FILE\nfrom app.dashboard import DASHBOARD_HTML\nfrom app.llm import build_error_title\nfrom app.models import ErrorPayload\nfrom app.storage import append_jsonl, read_jsonl\n\napp = FastAPI(title=\"Ansible LLM Error Monitor\", version=\"2.0.0\")\n\n\n@app.on_event(\"startup\")\ndef _startup():\n    from app.config import STATE_FILE\n    from app.storage import save_state\n\n    if not STATE_FILE.exists():\n        save_state(state.get())\n    worker.start()\n\n\n# ── Health ────────────────────────────────────────────────────────────────────\n\n@app.get(\"/health\")\ndef health() -> dict[str, Any]:\n    llm_ok, llm_detail = False, None\n    try:\n        if config.LLM_PROVIDER == \"openai\":\n            headers = {\"Authorization\": f\"Bearer {config.OPENAI_API_KEY}\"} if config.OPENAI_API_KEY else {}\n            r = requests.get(f\"{config.OPENAI_BASE_URL}/models\", headers=headers, timeout=10)\n        else:\n\n# extracted_signals\nfrom __future__ import annotations\nfrom datetime import datetime\nfrom typing import Any\nimport requests\nfrom fastapi import FastAPI\nfrom fastapi.responses import HTMLResponse\nfrom app import config, state, worker\nfrom app.config import RAW_FILE\nfrom app.dashboard import DASHBOARD_HTML\nfrom app.llm import build_error_title\nfrom app.models import ErrorPayload\nfrom app.storage import append_jsonl, read_jsonl\napp = FastAPI(title=\"Ansible LLM Error Monitor\", version=\"2.0.0\")"
+    },
+    {
+      "path": "ansible_flow_example/requirements.txt",
+      "content": "ansible>=9,<11\n"
+    },
+    {
+      "path": ".gitignore",
+      "content": "# Byte-compiled / optimized / DLL files\n__pycache__/\n*.py[codz]\n*$py.class\n\n# C extensions\n*.so\n\n# Distribution / packaging\n.Python\nbuild/\ndevelop-eggs/\ndist/\ndownloads/\neggs/\n.eggs/\nlib/\nlib64/\nparts/\nsdist/\nvar/\nwheels/\nshare/python-wheels/\n*.egg-info/\n.installed.cfg\n*.egg\nMANIFEST\n\n# PyInstaller\n#  Usually these files are written by a python script from a template\n#  before PyInstaller builds the exe, so as to inject date/other infos into it.\n*.manifest\n*.spec\n\n# Installer logs\npip-log.txt\npip-delete-this-directory.txt\n\n# Unit test / coverage reports\nhtmlcov/\n.tox/\n.nox/\n.coverage\n.coverage.*\n.cache\nnosetests.xml\ncoverage.xml\n*.cover\n*.py.cover\n.hypothesis/\n.pytest_cache/\ncover/\n\n# Translations\n*.mo\n*.pot\n\n# Django stuff:\n*.log\nlocal_settings.py\ndb.sqlite3\ndb.sqlite3-journal\n\n# Flask stuff:\ninstance/\n.webassets-cache\n\n# Scrapy stuff:\n.scrapy\n\n# Sphinx documentation\ndocs/_build/\n\n# PyBuilder\n.pybuilder/\ntarget/\n\n# Jupyter Notebook\n.ipynb_checkpoints\n\n# IPython\nprofile_default/\nipython_config.py\n\n# pyenv\n#   For a library or package, you might want to ignore these files since the code is\n#   intended to run in multiple environments; otherwise, check them in:\n# .python-version\n\n# pipenv\n#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.\n#   However, in case of collaboration, if having platform-specific dependencies or dependencies\n#   having no cross-platform support, pipenv may install dependencies that don't work, or not\n#   install all needed dependencies.\n#Pipfile.lock\n\n# UV\n#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.\n#   This is especially recommended for binary packages to ensure reproducibility, and is more\n#   commonly ignored for libraries.\n#uv.lock\n\n# poetry\n#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.\n#   This is especially recommended for binary packages to ensure reproducibility, and is more\n#   commonly ignored for libraries.\n#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control\n#poetry.lock\n#poetry.toml\n\n# pdm\n#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.\n#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.\n#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control\n#pdm.lock\n#pdm.toml\n.pdm-python\n.pdm-build/\n\n# pixi\n#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.\n#pixi.lock\n#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one\n#   in the .venv directory. It is recommended not to include this directory in version control.\n.pixi\n\n# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm\n__pypackages__/\n\n# Celery stuff\ncelerybeat-schedule\ncelerybeat.pid\n\n# SageMath parsed files\n*.sage.py\n\n# Environments\n.env\n.envrc\n.venv\nenv/\nvenv/\nENV/\nenv.bak/\nvenv.bak/\n\n# Spyder project settings\n.spyderproject\n.spyproject\n\n# Rope project settings\n.ropeproject\n\n# mkdocs documentation\n/site\n\n# mypy\n.mypy_cache/\n.dmypy.json\ndmypy.json\n\n# Pyre type checker\n.pyre/\n\n# pytype static type analyzer\n.pytype/\n\n# Cython debug symbols\ncython_debug/\n\n# PyCharm\n#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can\n#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitig"
+    },
+    {
+      "path": "app/state.py",
+      "content": "\"\"\"Dashboard state management: read, update, mutate with thread safety.\"\"\"\nfrom __future__ import annotations\n\nimport queue\nfrom datetime import datetime\nfrom typing import Any, Callable\n\nfrom app import config\nfrom app.models import ErrorPayload\nfrom app.storage import get_state_lock, load_state, save_state\n\n# Shared analysis queue – imported here so all modules share the same object\nanalysis_queue: queue.Queue[dict[str, Any]] = queue.Queue()\n\n\ndef _now() -> str:\n    return datetime.utcnow().isoformat() + \"Z\"\n\n\ndef _default() -> dict[str, Any]:\n    return {\n        \"system\": {\n            \"status\": \"idle\",\n            \"queue_size\": 0,\n            \"last_update\": _now(),\n            \"current_task_label\": None,\n            \"last_error_message\": None,\n            \"llm_provider\": config.LLM_PROVIDER,\n            \"llm_model\": config.active_model_name(),\n            \"total_analyzed\": 0,\n            \"total_errors\": 0,\n        },\n        \"latest_raw\": None,\n        \"latest_result\": None,\n        \"recent_results\": [],   # last 10 diagnoses for history panel\n    }\n\n\ndef get() -> dict[str, Any]:\n    with get_state_lock():\n\n# extracted_signals\nfrom __future__ import annotations\nimport queue\nfrom datetime import datetime\nfrom typing import Any, Callable\nfrom app import config\nfrom app.models import ErrorPayload\nfrom app.storage import get_state_lock, load_state, save_state"
+    },
+    {
+      "path": "app/worker.py",
+      "content": "\"\"\"Background worker: consumes the analysis queue and calls the LLM.\"\"\"\nfrom __future__ import annotations\n\nimport threading\nfrom datetime import datetime\nfrom typing import Any\n\nfrom app import state\nfrom app.config import DIAG_FILE\nfrom app.llm import diagnose\nfrom app.models import ErrorPayload\nfrom app.storage import append_jsonl\n\n\ndef _process(item: dict[str, Any]) -> None:\n    payload = ErrorPayload(**item[\"payload\"])\n    try:\n        state.set_analyzing(payload)\n        result = diagnose(payload)\n\n        diag_record = {\n            \"received_at\":    datetime.utcnow().isoformat() + \"Z\",\n            \"fingerprint\":    payload.fingerprint,\n            \"host\":           payload.host,\n            \"task\":           payload.task,\n            \"title\":          result[\"title\"],\n            \"natural_report\": result[\"natural_report\"],\n            \"analyzed_at\":    result[\"analyzed_at\"],\n            \"provider\":       result[\"provider\"],\n            \"model\":          result[\"model\"],\n            \"severity\":       result.get(\"severity\"),\n            \"confidence\":     result.get(\"confidence\"),\n        }\n        append_jsonl(DIAG_FILE, diag_record)\n        state.set_done(payload, diag_record)\n\n    except Exception as exc:\n        state.set_error(payload, str(exc))\n    finally:\n        state.analysis_queue.task_done()\n\n# extracted_signals\nfrom __future__ import annotations\nimport threading\nfrom datetime import datetime\nfrom typing import Any\nfrom app import state\nfrom app.config import DIAG_FILE\nfrom app.llm import diagnose\nfrom app.models import ErrorPayload\nfrom app.storage import append_jsonl"
+    }
+  ],
+  "selected_file_paths": [
+    "requirements.txt",
+    "main.py",
+    "app/routes.py",
+    "ansible_flow_example/requirements.txt",
+    ".gitignore",
+    "app/state.py",
+    "app/worker.py"
+  ],
+  "heuristic_facts": {
+    "languages": [
+      "Python"
+    ],
+    "framework_hints": [
+      "FastAPI"
+    ],
+    "dependency_managers": [
+      "pip"
+    ],
+    "commands": [
+      "uvicorn\n    uvicorn.run(\"main:app\", host=\"0.0.0.0\", port=8000, reload=True)"
+    ],
+    "env_vars": [
+      "DASHBOARD_HTML",
+      "DIAG_FILE",
+      "DLL",
+      "ENV",
+      "F401",
+      "LLM",
+      "LLM_PROVIDER",
+      "MANIFEST",
+      "OPENAI_API_KEY",
+      "OPENAI_BASE_URL",
+      "PEP",
+      "RAW_FILE",
+      "STATE_FILE"
+    ],
+    "entrypoints": [
+      "main.py"
+    ],
+    "has_docker": false,
+    "has_tests": true,
+    "has_ci": false,
+    "has_git_repo": true,
+    "project_type_hints": [
+      "API service",
+      "worker or background job"
+    ]
+  },
+  "git_context": {
+    "has_git_repo": true,
+    "git_dir_type": "directory",
+    "current_branch": "main",
+    "remotes": [
+      "origin https://github.com/bi0punk/ansible-llm-error-monitor",
+      "origin https://github.com/bi0punk/ansible-llm-error-monitor"
+    ],
+    "last_commit": "b1114f9 add files",
+    "tracked_files_count": 33
+  },
+  "existing_readme": "# Ansible LLM Error Monitor v2\n\nReal-time Ansible error ingestion with LLM-powered diagnosis — modular, production-ready.\n\n## Architecture\n\n```\nansible_monitor/\n├── main.py              ← Entrypoint (uvicorn)\n├── requirements.txt\n└── app/\n    ├── __init__.py\n    ├── config.py        ← All env-var configuration in one place\n    ├── models.py        ← Pydantic data models (ErrorPayload, DiagRecord)\n    ├── storage.py       ← JSONL append + JSON state R/W helpers\n    ├── llm.py           ← Prompt building + provider-agnostic LLM call\n    ├── state.py         ← Thread-safe dashboard state manager + queue\n    ├── worker.py        ← Background daemon: dequeues → diagnoses → persists\n    ├── routes.py        ← FastAPI app, all HTTP endpoints\n    └── dashboard.py     ← Dashboard HTML (single const string)\n```\n\n## Quick start\n\n```bash\npip install -r requirements.txt\nuvicorn main:app --reload\n# Open http://localhost:8000\n```\n\n## Environment variables\n\n| Variable          | Default                          | Description                         |\n|-------------------|----------------------------------|-------------------------------------|\n| `LLM_PROVIDER`    | `llama_cpp`                      | `llama_cpp` or `openai`             |\n| `LLAMA_BASE_URL`  | `http://127.0.0.1:8080`          | llama.cpp server URL                |\n| `LLAMA_MODEL_NAME`| `Qwen2.5-7B-Instruct-Q4_K_M.gguf`| Model file name                    |\n| `OPENAI_BASE_URL` | `https://api.openai.com/v1`      | OpenAI-compatible base URL          |\n| `OPENAI_API_KEY`  | *(empty)*                        | API key for OpenAI provider         |\n| `OPENAI_MODEL`    | `gpt-4.1-mini`                   | Model identifier                    |\n| `LLM_TIMEOUT`     | `180`                            | Seconds before LLM request times out|\n| `DATA_DIR`        | `./data`                         | Directory for JSONL/JSON files      |\n\n## API endpoints\n\n| Method | Path                | Description                              |\n|--------|---------------------|------------------------------------------|\n| `GET`  | `/`                 | Live dashboard UI                        |\n| `GET`  | `/health`           | Backend + LLM connectivity check        |\n| `POST` | `/api/ingest-error` | Receive an Ansible error payload         |\n| `GET`  | `/api/dashboard`    | Current state (polled by UI every 2s)   |\n| `GET`  | `/api/history`      | Last N diagnosed errors (`?limit=50`)   |\n\n## Sending a test error\n\n```bash\ncurl -X POST http://localhost:8000/api/ingest-error \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"event_type\": \"runner_on_failed\",\n    \"host\": \"web-prod-01\",\n    \"task\": \"Install nginx package\",\n    \"action\": \"ansible.builtin.apt\",\n    \"msg\": \"No package matching \\\"nginx\\\" found\",\n    \"rc\": 1,\n    \"failed\": true,\n    \"fingerprint\": \"abc123\"\n  }'\n```\n\n## Data files (in `./data/`)\n\n- `errors_raw.jsonl`  — every raw inbound payload\n- `errors_diag.jsonl` — every completed LLM diagnosis\n- `dashboard_state.json` — live dashboard state (overwritten on every update)\n",
+  "blueprint": {
+    "project_name": "Ansible LLM Error Monitor",
+    "project_type": "API service or worker",
+    "primary_language": "Python",
+    "one_liner": "A Python-based API and background worker for monitoring Ansible LLMS errors.",
+    "title": "README Blueprint",
+    "tagline": "This README provides a structured overview of the project's files and their roles.",
+    "overview": "The Ansible LLM Error Monitor is an application designed to monitor and analyze error logs from Ansible runs, using Language Models (LLMs) for diagnostics. It includes both a FastAPI-based web service and a background worker that processes these errors in real-time.",
+    "features": [],
+    "architecture": [],
+    "prerequisites": [],
+    "installation": [
+      "Ensure you have the required dependencies installed by running `pip install -r requirements.txt`",
+      "The project uses Git as its version control system."
+    ],
+    "configuration": [
+      "Configuration files are located in the 'app' directory, including 'config.py', which sets up environment variables and API settings.",
+      "Environment variables can be set using a `.env` file or directly via `export` commands. Refer to the project's documentation for details."
+    ],
+    "usage": [
+      "To run the application, use the command: `uvicorn main:app --host 0.0.0.0 --port 8000 --reload`",
+      "The background worker can be started with a separate script provided in the 'scripts' directory."
+    ],
+    "testing": [
+      "Unit tests are available and can be run using `pytest`.",
+      "Integration tests may also be conducted to ensure the application works as expected with other systems."
+    ],
+    "docker": [
+      "No Docker integration is included in this project."
+    ],
+    "repository_notes": [
+      "The repository includes a `.gitignore` file for excluding unnecessary files during version control, such as compiled Python bytecode and temporary files.",
+      "A `requirements.txt` file lists the required dependencies to run the application."
+    ],
+    "limitations": [],
+    "next_steps": [
+      "Review the provided documentation for more details on configuration and usage.",
+      "Explore the 'app' directory for source code and further customization options."
+    ]
+  },
+  "trace_events": [
+    {
+      "ts": 1773596832.4091353,
+      "kind": "project_start",
+      "project_name": "ansible-llm-error-monitor",
+      "project_path": "/home/drbash/Documentos/ansible-llm-error-monitor"
+    },
+    {
+      "ts": 1773596832.4124389,
+      "kind": "step_start",
+      "step": "gather_context",
+      "label": "Contexto paralelo (tree + git + archivos)"
+    },
+    {
+      "ts": 1773596832.449706,
+      "kind": "selected_files",
+      "files": [
+        "requirements.txt",
+        "main.py",
+        "app/routes.py",
+        "ansible_flow_example/requirements.txt",
+        ".gitignore",
+        "app/state.py",
+        "app/worker.py"
+      ]
+    },
+    {
+      "ts": 1773596832.4510198,
+      "kind": "step_done",
+      "step": "gather_context",
+      "label": "Contexto paralelo (tree + git + archivos)",
+      "elapsed_seconds": 0.039,
+      "summary": "16 dirs · 33 archivos · 7 seleccionados · fuente=system · git=sí · README previo detectado"
+    },
+    {
+      "ts": 1773596832.4532566,
+      "kind": "step_start",
+      "step": "run_heuristics",
+      "label": "Heurísticas locales"
+    },
+    {
+      "ts": 1773596832.4625063,
+      "kind": "heuristics",
+      "facts": {
+        "languages": [
+          "Python"
+        ],
+        "framework_hints": [
+          "FastAPI"
+        ],
+        "dependency_managers": [
+          "pip"
+        ],
+        "commands": [
+          "uvicorn\n    uvicorn.run(\"main:app\", host=\"0.0.0.0\", port=8000, reload=True)"
+        ],
+        "env_vars": [
+          "DASHBOARD_HTML",
+          "DIAG_FILE",
+          "DLL",
+          "ENV",
+          "F401",
+          "LLM",
+          "LLM_PROVIDER",
+          "MANIFEST",
+          "OPENAI_API_KEY",
+          "OPENAI_BASE_URL",
+          "PEP",
+          "RAW_FILE",
+          "STATE_FILE"
+        ],
+        "entrypoints": [
+          "main.py"
+        ],
+        "has_docker": false,
+        "has_tests": true,
+        "has_ci": false,
+        "has_git_repo": true,
+        "project_type_hints": [
+          "API service",
+          "worker or background job"
+        ],
+        "git_branch": "main",
+        "git_remotes": [
+          "origin https://github.com/bi0punk/ansible-llm-error-monitor",
+          "origin https://github.com/bi0punk/ansible-llm-error-monitor"
+        ]
+      }
+    },
+    {
+      "ts": 1773596832.4644406,
+      "kind": "step_done",
+      "step": "run_heuristics",
+      "label": "Heurísticas locales",
+      "elapsed_seconds": 0.011,
+      "summary": "langs=Python · frameworks=1 · entrypoints=1 · git=sí"
+    },
+    {
+      "ts": 1773596832.4675405,
+      "kind": "step_start",
+      "step": "build_blueprint",
+      "label": "Construcción del blueprint README"
+    },
+    {
+      "ts": 1773596832.4710243,
+      "kind": "info",
+      "title": "Prompt grande detectado",
+      "body": "8739 chars → el LLM puede tardar varios minutos.\nUsa [bold]--fast[/] para un prompt reducido (~60s en modelos 7B)."
+    },
+    {
+      "ts": 1773596832.4734643,
+      "kind": "llm_start",
+      "label": "readme_blueprint",
+      "prompt_chars": 8739,
+      "schema": "ReadmeBlueprint"
+    },
+    {
+      "ts": 1773597240.401601,
+      "kind": "llm_result",
+      "label": "readme_blueprint",
+      "summary": "Ansible LLM Error Monitor · A Python-based API and background worker for monitoring Ansible LLMS errors.",
+      "raw_excerpt": "{\n  \"project_name\": \"Ansible LLM Error Monitor\",\n  \"project_type\": \"API service or worker\",\n  \"primary_language\": \"Python\",\n  \"one_liner\": \"A Python-based API and background worker for monitoring Ansible LLMS errors.\",\n  \"title\": \"README Blueprint\",\n  \"tagline\": \"This README provides a structured overview of the project's files and their roles.\",\n  \"overview\": \"The Ansible LLM Error Monitor is an application designed to monitor and analyze error logs from Ansible runs, using Language Models (LLMs) for diagnostics. It includes both a FastAPI-based web service and a background worker that processes these errors in real-time.\",\n  \"features\": [],\n  \"architecture\": [],\n  \"prerequisites\": [],\n  \"installation\": [\n    \"Ensure you have the required dependencies installed by running `pip install -r requirements.txt`\",\n    \"The project uses Git as its version control system.\"\n  ],\n  \"configuration\": [\n    \"Configuration files are located in the 'app' directory, including 'config.py', which sets up environment variables and API settings.\",\n    \"Environment variables can be set using a `.env` file or directly via `export` commands. Refer to the project's documentation for details.\"\n  ],\n  \"usage\": [\n    \"To run the application, use the command: `uvicorn main:app --host 0.0.0.0 --port 8000 --reload`\",\n    \"The background worker can be started with a separate script provided in the 'scripts' directory.\"\n  ],\n  \"testing\": [\n    \"Unit tests are available and can be run using `pytest`.\",\n    \"Integration tests may also be conducted to ensure the application works as expected with other syste"
+    },
+    {
+      "ts": 1773597240.4031372,
+      "kind": "step_done",
+      "step": "build_blueprint",
+      "label": "Construcción del blueprint README",
+      "elapsed_seconds": 407.937,
+      "summary": "API service or worker · Python · 0 features"
+    },
+    {
+      "ts": 1773597240.4056146,
+      "kind": "step_start",
+      "step": "write_outputs",
+      "label": "Escritura de artefactos"
+    }
+  ]
+}
