@@ -205,3 +205,13 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Runtime data (se regenera)
+data/*.json
+data/*.jsonl
+ansible_flow_example/backend/data/*.json
+ansible_flow_example/backend/data/*.jsonl
+
+# README rebuilder cache
+.readme_rebuilder/
+ansible_flow_example/.readme_rebuilder/

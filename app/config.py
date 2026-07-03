@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-
 # ── Data paths ──────────────────────────────────────────────────────────────
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data"))
 DATA_DIR.mkdir(exist_ok=True)

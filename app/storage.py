@@ -1,6 +1,7 @@
 """Thin persistence helpers: JSONL append and JSON state read/write."""
 from __future__ import annotations
 
+import contextlib
 import json
 import threading
 from copy import deepcopy
@@ -29,10 +30,8 @@ def read_jsonl(path: Path, limit: int = 50) -> list[dict[str, Any]]:
         line = line.strip()
         if not line:
             continue
-        try:
+        with contextlib.suppress(json.JSONDecodeError):
             records.append(json.loads(line))
-        except json.JSONDecodeError:
-            pass
     return records[-limit:]
 
 

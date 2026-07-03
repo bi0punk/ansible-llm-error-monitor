@@ -9,7 +9,6 @@ import requests
 from app import config
 from app.models import ErrorPayload
 
-
 # ── Prompt helpers ────────────────────────────────────────────────────────────
 
 def build_error_title(payload: ErrorPayload) -> str:

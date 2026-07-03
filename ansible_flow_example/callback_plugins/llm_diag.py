@@ -1,10 +1,10 @@
 # callback_plugins/llm_diag.py
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
-import hashlib
 from typing import Any
 
 from ansible.plugins.callback import CallbackBase

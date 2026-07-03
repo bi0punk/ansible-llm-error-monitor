@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import queue
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from app import config
 from app.models import ErrorPayload
