@@ -790,20 +790,28 @@ function applyBanner(system) {
   }
   if (status === 'error') {
     wrap.classList.add('show');
-    text.innerHTML = `<span style="color:var(--red)">⚠ Falló el análisis:</span> ${system.last_error_message || '—'}`;
+    text.innerHTML = '<span style="color:var(--red)">⚠ Falló el análisis:</span> ' + escapeHtml(system.last_error_message || '—');
     return;
   }
   wrap.classList.remove('show');
 }
 
+// ── Sanitizer ──────────────────────────────────────────────
+function escapeHtml(str) {
+  if (str == null) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // ── Tags ───────────────────────────────────────────────────
 function buildTags(payload) {
   const tags = [];
-  if (payload.event_type) tags.push(`<span class="tag event">⚡ ${payload.event_type}</span>`);
-  if (payload.host)       tags.push(`<span class="tag host">🖥 ${payload.host}</span>`);
+  if (payload.event_type) tags.push(`<span class="tag event">⚡ ${escapeHtml(payload.event_type)}</span>`);
+  if (payload.host)       tags.push(`<span class="tag host">🖥 ${escapeHtml(payload.host)}</span>`);
   if (payload.failed)     tags.push(`<span class="tag failed">✗ failed</span>`);
   if (payload.unreachable)tags.push(`<span class="tag failed">✗ unreachable</span>`);
-  if (payload.rc != null) tags.push(`<span class="tag">rc=${payload.rc}</span>`);
+  if (payload.rc != null) tags.push(`<span class="tag">rc=${escapeHtml(payload.rc)}</span>`);
   if (payload.changed)    tags.push(`<span class="tag ok">✓ changed</span>`);
   return tags.join('');
 }

@@ -11,7 +11,7 @@ from app.models import ErrorPayload
 from app.storage import get_state_lock, load_state, save_state
 
 # Shared analysis queue – imported here so all modules share the same object
-analysis_queue: queue.Queue[dict[str, Any]] = queue.Queue()
+analysis_queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=1000)
 
 
 def _now() -> str:
