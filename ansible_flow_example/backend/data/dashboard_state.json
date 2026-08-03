@@ -1,0 +1,45 @@
+{
+  "system": {
+    "status": "done",
+    "queue_size": 0,
+    "last_update": "2026-03-15T03:43:35.305902Z",
+    "current_task_label": null,
+    "last_error_message": null
+  },
+  "latest_raw": {
+    "received_at": "2026-03-15T03:41:30.484520Z",
+    "title": "RUNNER ON FAILED · Gathering Facts · host prod01",
+    "payload": {
+      "event_type": "runner_on_failed",
+      "host": "prod01",
+      "task": "Gathering Facts",
+      "action": "gather_facts",
+      "msg": "Task failed: Missing sudo password",
+      "stderr": null,
+      "stdout": null,
+      "exception": "(traceback unavailable)",
+      "rc": null,
+      "changed": false,
+      "failed": null,
+      "unreachable": null,
+      "timestamp": 1773546090,
+      "fingerprint": "170cfa73a6c553331dfbddeecefcf1bbc365f03200a76d1480ca517504c2bf23",
+      "ignore_errors": null,
+      "raw_result": {
+        "exception": "(traceback unavailable)",
+        "msg": "Task failed: Missing sudo password",
+        "changed": false,
+        "_ansible_no_log": false
+      }
+    }
+  },
+  "latest_result": {
+    "received_at": "2026-03-15T03:43:35.304579Z",
+    "fingerprint": "170cfa73a6c553331dfbddeecefcf1bbc365f03200a76d1480ca517504c2bf23",
+    "host": "prod01",
+    "task": "Gathering Facts",
+    "title": "RUNNER ON FAILED · Gathering Facts · host prod01",
+    "natural_report": "Título: Fallo en la tarea de recopilación de datos por falta de contraseña de sudo\n\nResumen:\nLa tarea de recopilación de datos (Gathering Facts) falló debido a la falta de contraseña de sudo en el host prod01.\n\nDiagnóstico:\nEl error indica que la tarea de recopilación de datos no pudo ejecutarse debido a la falta de contraseña de sudo. Esto sugiere que el usuario Ansible no tiene permisos de sudo en el host prod01, o que la contraseña de sudo no está configurada correctamente. Esto puede deberse a una configuración incorrecta en el archivo sudoers o a que la contraseña de sudo no ha sido ingresada correctamente durante la ejecución del playbook.\n\nValidaciones recomendadas:\n1. Verificar la configuración de sudo en el archivo /etc/sudoers del host prod01.\n2. Asegurarse de que el usuario Ansible tenga los permisos necesarios para ejecutar tareas de sudo en el host prod01.\n3. Verificar si la contraseña de sudo ha sido ingresada correctamente durante la ejecución del playbook.\n\nSeveridad: medium\nConfianza: 0.9\n\nDatos del error:\n{\n  \"event_type\": \"runner_on_failed\",\n  \"host\": \"prod01\",\n  \"task\": \"Gathering Facts\",\n  \"action\": \"gather_facts\",\n  \"msg\": \"Task failed: Missing sudo password\",\n  \"stderr\": null,\n  \"stdout\": null,\n  \"exception\": \"(traceback unavailable)\",\n  \"rc\": null,\n  \"changed\": false,\n  \"failed\": null,\n  \"unreachable\": null,\n  \"timestamp\": 1773546090,\n  \"fingerprint\": \"170cfa73a6c553331dfbddeecefcf1bbc365f03200a76d1480ca517504c2bf23\",\n  \"ignore_errors\": null,\n  \"raw_result\": {\n    \"exception\": \"(traceback unavailable)\",\n    \"msg\": \"Task failed: Missing sudo password\",\n    \"changed\": false,\n    \"_ansible_no_log\": false\n  }\n}",
+    "analyzed_at": "2026-03-15T03:43:35.304421Z"
+  }
+}
