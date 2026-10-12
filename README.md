@@ -1,85 +1,116 @@
 # Ansible LLM Error Monitor v2
 
+Servicio de ingesta de errores de Ansible en tiempo real con diagnóstico automático vía LLM (llama.cpp local o proveedor compatible con OpenAI): FastAPI modular, cola de trabajo en background y dashboard en vivo.
+
 [![CI](https://github.com/bi0punk/ansible-llm-error-monitor/actions/workflows/ci.yml/badge.svg)](https://github.com/bi0punk/ansible-llm-error-monitor/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Real-time Ansible error ingestion with LLM-powered diagnosis — modular, production-ready.
+## Contenido
 
-## Tabla de contenidos
-
-- [Stack](#stack)
+- [Características](#características)
 - [Arquitectura](#arquitectura)
-- [Quick start](#quick-start)
-- [Variables de entorno](#environment-variables)
-- [API endpoints](#api-endpoints)
-- [Envío de error de prueba](#sending-a-test-error)
-- [Tests](#tests)
-- [CI](#ci)
-- [Datos](#data-files-in-data)
-- [Ejemplo de flujo Ansible](#ejemplo-de-flujo-ansible)
+- [Stack](#stack)
+- [Estructura del repositorio](#estructura-del-repositorio)
+- [Instalación](#instalación)
+- [Uso](#uso)
+- [Configuración](#configuración)
+- [Tests / CI](#tests--ci)
+- [Roadmap](#roadmap)
 - [Licencia](#licencia)
+
+## Características
+
+- Ingesta de errores Ansible por HTTP (`POST /api/ingest-error`) desde un callback plugin.
+- Diagnóstico automático con provider agnóstico: llama.cpp (local) u OpenAI-compatible.
+- Worker en background con cola thread-safe que desencola, diagnostica y persiste.
+- Dashboard HTML en vivo con estado consultado por polling (2 s).
+- Persistencia sin DB: JSONL (raw + diag) y JSON state.
+- Configuración centralizada por variables de entorno; salud del backend y del LLM en `/health`.
+
+## Arquitectura
+
+```mermaid
+sequenceDiagram
+  participant A as Ansible (callback plugin llm_diag.py)
+  participant API as FastAPI (app/routes.py)
+  participant Q as Queue / state manager (app/state.py)
+  participant W as Worker (app/worker.py)
+  participant LLM as LLM (llama.cpp / OpenAI)
+  participant S as Storage JSONL (app/storage.py)
+  participant D as Dashboard HTML
+
+  A->>API: POST /api/ingest-error (ErrorPayload)
+  API->>Q: encolar payload
+  API-->>A: 202 Accepted
+  Note over Q: dashboard state<br/>+ polling
+  Q->>W: dequeue
+  W->>LLM: prompt de diagnóstico
+  LLM-->>W: sugerencia / causa raíz
+  W->>S: append errors_diag.jsonl
+  S-->>D: dashboard_state.json
+  D->>API: GET /api/dashboard (polling 2s)
+  D-->>D: render estado en vivo
+```
 
 ## Stack
 
 - Python 3.12+
 - FastAPI + Uvicorn
 - Pydantic v2 (modelos)
-- requests (LLM HTTP)
+- requests (llamadas LLM por HTTP)
 - LLM providers: llama.cpp (local) u OpenAI-compatible
 - Persistencia: JSONL + JSON state (sin DB)
 - Calidad: ruff (lint), pytest
 
-## Arquitectura
+## Estructura del repositorio
 
 ```
-ansible_monitor/
-├── main.py              ← Entrypoint (uvicorn)
+ansible-llm-error-monitor/
+├── main.py              # Entrypoint (uvicorn)
 ├── requirements.txt
-└── app/
-    ├── __init__.py
-    ├── config.py        ← All env-var configuration in one place
-    ├── models.py        ← Pydantic data models (ErrorPayload, DiagRecord)
-    ├── storage.py       ← JSONL append + JSON state R/W helpers
-    ├── llm.py           ← Prompt building + provider-agnostic LLM call
-    ├── state.py         ← Thread-safe dashboard state manager + queue
-    ├── worker.py        ← Background daemon: dequeues → diagnoses → persists
-    ├── routes.py        ← FastAPI app, all HTTP endpoints
-    └── dashboard.py     ← Dashboard HTML (single const string)
+├── pyproject.toml
+├── app/
+│   ├── __init__.py
+│   ├── config.py        # Configuración por variables de entorno
+│   ├── models.py        # Pydantic (ErrorPayload, DiagRecord)
+│   ├── storage.py       # JSONL append + JSON state R/W
+│   ├── llm.py           # Prompts + llamada provider-agnostic
+│   ├── state.py         # Manager de estado + cola (thread-safe)
+│   ├── worker.py        # Daemon background: dequeue → diagnose → persist
+│   ├── routes.py        # FastAPI app + endpoints HTTP
+│   └── dashboard.py     # Dashboard HTML (string única)
+├── tests/test_smoke.py
+├── ansible_flow_example/
+│   ├── callback_plugins/llm_diag.py   # Callback que POSTea errores
+│   ├── playbooks/site.yml
+│   ├── roles/demo/
+│   ├── scripts/ (run_fail_assert.sh, run_fail_command.sh, run_ok.sh)
+│   └── requirements.txt
+└── .github/workflows/ci.yml
 ```
 
-## Quick start
+## Instalación
 
 ```bash
 pip install -r requirements.txt
 uvicorn main:app --reload
-# Open http://localhost:8000
+# Abrir http://localhost:8000
 ```
 
-## Environment variables
+## Uso
 
-| Variable          | Default                          | Description                         |
-|-------------------|----------------------------------|-------------------------------------|
-| `LLM_PROVIDER`    | `llama_cpp`                      | `llama_cpp` or `openai`             |
-| `LLAMA_BASE_URL`  | `http://127.0.0.1:8080`          | llama.cpp server URL                |
-| `LLAMA_MODEL_NAME`| `Qwen2.5-7B-Instruct-Q4_K_M.gguf`| Model file name                    |
-| `OPENAI_BASE_URL` | `https://api.openai.com/v1`      | OpenAI-compatible base URL          |
-| `OPENAI_API_KEY`  | *(empty)*                        | API key for OpenAI provider         |
-| `OPENAI_MODEL`    | `gpt-4.1-mini`                   | Model identifier                    |
-| `LLM_TIMEOUT`     | `180`                            | Seconds before LLM request times out|
-| `DATA_DIR`        | `./data`                         | Directory for JSONL/JSON files      |
+Endpoints:
 
-## API endpoints
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/` | Dashboard en vivo |
+| `GET` | `/health` | Chequeo de backend + conectividad LLM |
+| `POST` | `/api/ingest-error` | Recibe un payload de error de Ansible |
+| `GET` | `/api/dashboard` | Estado actual (polling por la UI cada 2 s) |
+| `GET` | `/api/history` | Últimos N errores diagnosticados (`?limit=50`) |
 
-| Method | Path                | Description                              |
-|--------|---------------------|------------------------------------------|
-| `GET`  | `/`                 | Live dashboard UI                        |
-| `GET`  | `/health`           | Backend + LLM connectivity check        |
-| `POST` | `/api/ingest-error` | Receive an Ansible error payload         |
-| `GET`  | `/api/dashboard`    | Current state (polled by UI every 2s)   |
-| `GET`  | `/api/history`      | Last N diagnosed errors (`?limit=50`)   |
-
-## Sending a test error
+Enviar un error de prueba:
 
 ```bash
 curl -X POST http://localhost:8000/api/ingest-error \
@@ -96,35 +127,45 @@ curl -X POST http://localhost:8000/api/ingest-error \
   }'
 ```
 
-## Data files (in `./data/`)
+Flujo Ansible de demostración: `ansible_flow_example/` contiene el callback plugin `llm_diag.py`, inventario, group_vars, roles demo y scripts para simular fallos (`run_fail_assert.sh`, `run_fail_command.sh`, `run_ok.sh`). Ver `ansible_flow_example/README.md` para detalles.
 
-- `errors_raw.jsonl`  — every raw inbound payload
-- `errors_diag.jsonl` — every completed LLM diagnosis
-- `dashboard_state.json` — live dashboard state (overwritten on every update)
+Archivos de datos en `./data/`:
 
-## Tests
+- `errors_raw.jsonl` — payloads entrantes crudos
+- `errors_diag.jsonl` — diagnósticos LLM completados
+- `dashboard_state.json` — estado del dashboard (sobrescrito en cada update)
+
+## Configuración
+
+| Variable | Default | Descripción |
+|---|---|---|
+| `LLM_PROVIDER` | `llama_cpp` | `llama_cpp` u `openai` |
+| `LLAMA_BASE_URL` | `http://127.0.0.1:8080` | URL del servidor llama.cpp |
+| `LLAMA_MODEL_NAME` | `Qwen2.5-7B-Instruct-Q4_K_M.gguf` | Nombre del archivo del modelo |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL compatible OpenAI |
+| `OPENAI_API_KEY` | *(vacío)* | API key para el provider OpenAI |
+| `OPENAI_MODEL` | `gpt-4.1-mini` | Identificador del modelo |
+| `LLM_TIMEOUT` | `180` | Segundos de timeout de la llamada LLM |
+| `DATA_DIR` | `./data` | Directorio para JSONL/JSON |
+
+## Tests / CI
 
 ```bash
 DATA_DIR=/tmp/ansible-monitor-data LLM_PROVIDER=none pytest -q
 ```
 
-Smoke tests (`tests/test_smoke.py`): health, ingest-error (POST), dashboard + history. Usan `LLM_PROVIDER=none` (sin LLM real) y `DATA_DIR` efímero.
+Smoke tests (`tests/test_smoke.py`): health, ingest-error (POST), dashboard e history. Usan `LLM_PROVIDER=none` (sin LLM real) y `DATA_DIR` efímero.
 
-## CI
+CI: GitHub Actions (`.github/workflows/ci.yml`) sobre Python 3.12 — **lint** (`ruff check .`) y **test** (`pytest -q` con `DATA_DIR=/tmp/...` y `LLM_PROVIDER=none`).
 
-GitHub Actions (`.github/workflows/ci.yml`) sobre Python 3.12:
+## Roadmap
 
-- **lint** — `ruff check .`
-- **test** — `pytest -q` con `DATA_DIR=/tmp/...` + `LLM_PROVIDER=none` (no requiere LLM real).
-
-## Ejemplo de flujo Ansible
-
-El directorio `ansible_flow_example/` contiene un playbook de demostración con:
-- callback plugin (`llm_diag.py`) que POSTea errores al monitor.
-- inventario, group_vars, roles demo.
-- scripts para simular fallos (`run_fail_assert.sh`, `run_fail_command.sh`, `run_ok.sh`).
-
-Ver `ansible_flow_example/README.md` para detalles.
+- [x] Ingesta HTTP + diagnóstico LLM (provider agnóstico)
+- [x] Dashboard en vivo con polling
+- [x] Persistencia JSONL + estado
+- [ ] Persistencia en base de datos real (PostgreSQL)
+- [ ] Autenticación para la ingesta de errores
+- [ ] Agrupación de errores por fingerprint
 
 ## Licencia
 
