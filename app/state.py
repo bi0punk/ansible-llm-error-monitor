@@ -1,9 +1,10 @@
 """Dashboard state management: read, update, mutate with thread safety."""
+
 from __future__ import annotations
 
 import queue
 from collections.abc import Callable
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from app import config
@@ -15,7 +16,7 @@ analysis_queue: queue.Queue[dict[str, Any]] = queue.Queue(maxsize=1000)
 
 
 def _now() -> str:
-    return datetime.utcnow().isoformat() + "Z"
+    return datetime.now(UTC).isoformat() + "Z"
 
 
 def _default() -> dict[str, Any]:
@@ -33,7 +34,7 @@ def _default() -> dict[str, Any]:
         },
         "latest_raw": None,
         "latest_result": None,
-        "recent_results": [],   # last 10 diagnoses for history panel
+        "recent_results": [],  # last 10 diagnoses for history panel
     }
 
 
@@ -47,15 +48,16 @@ def update(mutator: Callable[[dict[str, Any]], dict[str, Any] | None]) -> dict[s
         current = load_state(_default())
         updated = mutator(current) or current
         sys = updated["system"]
-        sys["queue_size"]   = analysis_queue.qsize()
-        sys["last_update"]  = _now()
+        sys["queue_size"] = analysis_queue.qsize()
+        sys["last_update"] = _now()
         sys["llm_provider"] = config.LLM_PROVIDER
-        sys["llm_model"]    = config.active_model_name()
+        sys["llm_model"] = config.active_model_name()
         save_state(updated)
         return updated
 
 
 # ── Named mutators ────────────────────────────────────────────────────────────
+
 
 def set_analyzing(payload: ErrorPayload) -> None:
     from app.llm import build_error_title

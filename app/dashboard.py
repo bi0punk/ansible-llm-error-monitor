@@ -1,4 +1,5 @@
 """Dashboard HTML – served at /"""
+
 DASHBOARD_HTML = r"""
 <!doctype html>
 <html lang="es">

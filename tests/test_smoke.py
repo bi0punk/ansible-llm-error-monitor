@@ -15,16 +15,22 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     import importlib
 
     import app.config as config
+
     importlib.reload(config)
     import app.storage as storage
+
     importlib.reload(storage)
     import app.state as state
+
     importlib.reload(state)
     import app.llm as llm
+
     importlib.reload(llm)
     import app.routes as routes
+
     importlib.reload(routes)
     import main as mainmod
+
     importlib.reload(mainmod)
 
     with TestClient(mainmod.app) as c:

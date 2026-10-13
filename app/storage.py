@@ -1,4 +1,5 @@
 """Thin persistence helpers: JSONL append and JSON state read/write."""
+
 from __future__ import annotations
 
 import contextlib
@@ -15,8 +16,10 @@ _state_lock = threading.Lock()
 
 # ── JSONL helpers ─────────────────────────────────────────────────────────────
 
+
 def append_jsonl(path: Path, data: dict[str, Any]) -> None:
     import fcntl
+
     line = json.dumps(data, ensure_ascii=False) + "\n"
     with path.open("a", encoding="utf-8") as f:
         fcntl.flock(f.fileno(), fcntl.LOCK_EX)
@@ -43,6 +46,7 @@ def read_jsonl(path: Path, limit: int = 50) -> list[dict[str, Any]]:
 
 # ── JSON state file ──────────────────────────────────────────────────────────
 
+
 def load_state(default: dict[str, Any]) -> dict[str, Any]:
     if not STATE_FILE.exists():
         return deepcopy(default)
@@ -53,7 +57,6 @@ def load_state(default: dict[str, Any]) -> dict[str, Any]:
 
 
 def save_state(data: dict[str, Any]) -> None:
-    import os
     tmp = STATE_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(STATE_FILE)

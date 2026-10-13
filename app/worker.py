@@ -1,8 +1,9 @@
 """Background worker: consumes the analysis queue and calls the LLM."""
+
 from __future__ import annotations
 
 import threading
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from app import state
@@ -19,17 +20,17 @@ def _process(item: dict[str, Any]) -> None:
         result = diagnose(payload)
 
         diag_record = {
-            "received_at":    datetime.utcnow().isoformat() + "Z",
-            "fingerprint":    payload.fingerprint,
-            "host":           payload.host,
-            "task":           payload.task,
-            "title":          result["title"],
+            "received_at": datetime.now(UTC).isoformat() + "Z",
+            "fingerprint": payload.fingerprint,
+            "host": payload.host,
+            "task": payload.task,
+            "title": result["title"],
             "natural_report": result["natural_report"],
-            "analyzed_at":    result["analyzed_at"],
-            "provider":       result["provider"],
-            "model":          result["model"],
-            "severity":       result.get("severity"),
-            "confidence":     result.get("confidence"),
+            "analyzed_at": result["analyzed_at"],
+            "provider": result["provider"],
+            "model": result["model"],
+            "severity": result.get("severity"),
+            "confidence": result.get("confidence"),
         }
         append_jsonl(DIAG_FILE, diag_record)
         state.set_done(payload, diag_record)

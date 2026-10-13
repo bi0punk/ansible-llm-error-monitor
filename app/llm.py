@@ -1,4 +1,5 @@
 """LLM client: prompt building and provider-agnostic inference call."""
+
 from __future__ import annotations
 
 import re
@@ -10,6 +11,7 @@ from app import config
 from app.models import ErrorPayload
 
 # ── Prompt helpers ────────────────────────────────────────────────────────────
+
 
 def build_error_title(payload: ErrorPayload) -> str:
     parts = []
@@ -62,12 +64,13 @@ def _build_prompt(payload: ErrorPayload) -> str:
 
 # ── Low-level HTTP call ───────────────────────────────────────────────────────
 
+
 def _call_openai_compat(base_url: str, model: str, api_key: str | None, messages: list[dict]) -> str:
     headers: dict[str, str] = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
 
-    body = {
+    body: dict[str, Any] = {
         "model": model,
         "messages": messages,
         "temperature": 0.1,
@@ -84,6 +87,7 @@ def _call_openai_compat(base_url: str, model: str, api_key: str | None, messages
 
 
 # ── Public interface ──────────────────────────────────────────────────────────
+
 
 def _parse_severity(text: str) -> str | None:
     m = re.search(r"Severidad:\s*(low|medium|high|critical)", text, re.IGNORECASE)
@@ -124,13 +128,14 @@ def diagnose(payload: ErrorPayload) -> dict[str, Any]:
     else:
         raise RuntimeError(f"Proveedor LLM no soportado: {config.LLM_PROVIDER}")
 
-    from datetime import datetime
+    from datetime import UTC, datetime
+
     return {
-        "title":          build_error_title(payload),
+        "title": build_error_title(payload),
         "natural_report": content,
-        "analyzed_at":    datetime.utcnow().isoformat() + "Z",
-        "provider":       config.LLM_PROVIDER,
-        "model":          config.active_model_name(),
-        "severity":       _parse_severity(content),
-        "confidence":     _parse_confidence(content),
+        "analyzed_at": datetime.now(UTC).isoformat() + "Z",
+        "provider": config.LLM_PROVIDER,
+        "model": config.active_model_name(),
+        "severity": _parse_severity(content),
+        "confidence": _parse_confidence(content),
     }
