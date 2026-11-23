@@ -156,7 +156,7 @@ DATA_DIR=/tmp/ansible-monitor-data LLM_PROVIDER=none pytest -q
 
 Smoke tests (`tests/test_smoke.py`): health, ingest-error (POST), dashboard e history. Usan `LLM_PROVIDER=none` (sin LLM real) y `DATA_DIR` efímero.
 
-CI: GitHub Actions (`.github/workflows/ci.yml`) sobre Python 3.12 — **lint** (`ruff check .`) y **test** (`pytest -q` con `DATA_DIR=/tmp/...` y `LLM_PROVIDER=none`).
+CI: GitHub Actions (`.github/workflows/ci.yml`) sobre Python 3.12 — **lint** (`ruff check .`) y **test** (`pytest -q` tras instalar `requirements.txt`, con `DATA_DIR=/tmp/ansible-monitor-data` y `LLM_PROVIDER=none`).
 
 ## Roadmap
 
